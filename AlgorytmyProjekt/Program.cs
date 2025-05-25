@@ -29,7 +29,7 @@ namespace AlgorytmyProjekt
                         ErasthotenesSieveMenu();
                         break;
                     case "4":
-                        PrimAlgorithm.Run();
+                        MonteCarloMenu();
                         break;
                     case "5":
                         return;
@@ -82,10 +82,10 @@ namespace AlgorytmyProjekt
                 Console.WriteLine("Funkcja nie zmienia znaku w podanym przedziale.");
                 return double.NaN;
             }
-            double middle = (left + right) / 2;
-
+            double middle = (left + right) / 2; 
             while (Math.Abs(right - left) >= accuracy)
             {
+                middle = (left + right) / 2;
                 if (Function(middle, formula) == 0)
                 {
                     return middle;
@@ -117,22 +117,66 @@ namespace AlgorytmyProjekt
             Console.WriteLine($"Liczby pierwsze do {n}: {string.Join(", ", primes)}");
         }
         public static List<int> EratosthenesSieve(int n)
-        { 
-            List<int> primes = new List<int>();
-            for(int i=2; i*i<=n;i++)
+        {
+            bool[] isPrime = new bool[n + 1];
+            for (int i = 2; i <= n; i++)
             {
-                if (!primes.Contains(i))
+                isPrime[i] = true;
+            }
+
+            for (int i = 2; i * i <= n; i++)
+            {
+                if (isPrime[i])
                 {
                     for (int j = i * i; j <= n; j += i)
                     {
-                        primes.Add(j);
+                        isPrime[j] = false;
                     }
                 }
             }
+
+            List<int> primes = new List<int>();
+            for (int i = 2; i <= n; i++)
+            {
+                if (isPrime[i])
+                {
+                    primes.Add(i);
+                }
+            }
+
             return primes;
         }
         #endregion
+        #region Monte Carlo
+        public static void MonteCarloMenu()
+        {
+            Console.WriteLine("Podaj macierz (np. 1,2,3;0,1,4;5,6,0):");
+            string input = Console.ReadLine();
+            double[,] matrix = ParseMatrix(input);
+            Console.WriteLine("Podaj liczbę prób Monte Carlo:");
+            int trials = int.Parse(Console.ReadLine());
+            double estimate = MonteCarloDeterminant.EstimateDeterminantMonteCarlo(matrix, trials);
+            Console.WriteLine($"Przybliżony wyznacznik (Monte Carlo): {estimate}");
+            double exact = MonteCarloDeterminant.Determinant(matrix);
+            Console.WriteLine($"Dokładny wyznacznik (rekurencyjnie): {exact}");
+        }
 
+        private static double[,] ParseMatrix(string input)
+        {
+            string[] rows = input.Split(';');
+            int n = rows.Length;
+            double[,] matrix = new double[n, n];
+            for (int i = 0; i < n; i++)
+            {
+                string[] values = rows[i].Split(',');
+                for (int j = 0; j < n; j++)
+                {
+                    matrix[i, j] = double.Parse(values[j], CultureInfo.InvariantCulture);
+                }
+            }
+            return matrix;
+        }
+        #endregion
 
     }
     #region math formula parser
@@ -335,5 +379,100 @@ namespace AlgorytmyProjekt
             return tokens;
         }
     }
+    #endregion
+    #region Monte Carlo Determinant
+    public static class MonteCarloDeterminant
+    {
+        public static double EstimateDeterminantMonteCarlo(double[,] matrix, int trials)
+        {
+            int n = matrix.GetLength(0);
+            Random rand = new Random();
+            double sum = 0;
+
+            for (int t = 0; t < trials; t++)
+            {
+                int[] perm = Enumerable.Range(0, n).OrderBy(_ => rand.Next()).ToArray();
+                double product = 1;
+                for (int i = 0; i < n; i++)
+                {
+                    product *= matrix[i, perm[i]];
+                }
+
+                int sign = PermutationSign(perm);
+                sum += sign * product;
+            }
+
+            return sum / trials * Factorial(n);
+        }
+
+        public static int PermutationSign(int[] perm)
+        {
+            int sign = 1;
+            bool[] visited = new bool[perm.Length];
+
+            for (int i = 0; i < perm.Length; i++)
+            {
+                if (!visited[i])
+                {
+                    int cycleLength = 0;
+                    int j = i;
+                    while (!visited[j])
+                    {
+                        visited[j] = true;
+                        j = perm[j];
+                        cycleLength++;
+                    }
+
+                    if (cycleLength % 2 == 0)
+                        sign *= -1;
+                }
+            }
+
+            return sign;
+        }
+
+        public static double Determinant(double[,] matrix)
+        {
+            int n = matrix.GetLength(0);
+            if (n == 1) return matrix[0, 0];
+
+            double det = 0;
+            for (int col = 0; col < n; col++)
+            {
+                double[,] minor = GetMinor(matrix, 0, col);
+                det += Math.Pow(-1, col) * matrix[0, col] * Determinant(minor);
+            }
+            return det;
+        }
+
+        private static double[,] GetMinor(double[,] matrix, int rowToRemove, int colToRemove)
+        {
+            int n = matrix.GetLength(0);
+            double[,] minor = new double[n - 1, n - 1];
+            int mi = 0;
+            for (int i = 0; i < n; i++)
+            {
+                if (i == rowToRemove) continue;
+                int mj = 0;
+                for (int j = 0; j < n; j++)
+                {
+                    if (j == colToRemove) continue;
+                    minor[mi, mj] = matrix[i, j];
+                    mj++;
+                }
+                mi++;
+            }
+            return minor;
+        }
+
+        private static double Factorial(int n)
+        {
+            double result = 1;
+            for (int i = 2; i <= n; i++)
+                result *= i;
+            return result;
+        }
+    }
+
     #endregion
 }
